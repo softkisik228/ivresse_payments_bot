@@ -32,12 +32,14 @@ dp.middleware.setup(LoggingMiddleware())
 accept_message = message = f"""
 🎉 Оплата успешно подтверждена! 🎉
 
+😘 Ты внесен в списки желанных гостей 📋
+
 📍 Ждём тебя 5 апреля с 19:00 по адресу:  
 Ольховская ул. 14с5 🏠🔥
 
 🔹 Что взять с собой?  
    - 📌 Студенческий билет – для входа  
-   - 📌 Паспорт – на всякий случай  
+   - 📌 Паспорт – для подтверждения совершенолетия и идентификации личности
    - 📌 Отличное настроение – без него не пустим! 😉🎊  
 
 💃 Будет много музыки, драйва и крутых впечатлений!  
@@ -46,9 +48,7 @@ accept_message = message = f"""
 
 
 promo_codes = {
-    "PROMO10": 10,
-    "PROMO20": 20,
-    "PROMO30": 30
+    "GOSHIK500": 500,
 }
 
 # Определение состояний
@@ -161,12 +161,12 @@ async def process_promo_code(message: types.Message, state: FSMContext):
 
     # Отправляем пользователю данные для подтверждения
     await message.answer(
-        "🔍 **Проверьте введенные данные:**\n\n"
-        f"👤 **ФИО:** {full_name}\n"
-        f"🏫 **Учебное заведение:** {university}\n"
-        f"🎟 **Промокод:** {promo_code}\n"
-        f"💰 **Скидка:** {discount}₽\n"
-        f"🤑 **Итоговая цена:** {final_price}₽\n\n"
+        "🔍 Проверьте введенные данные:\n\n"
+        f"👤 ФИО: {full_name}\n"
+        f"🏫 Учебное заведение: {university}\n"
+        f"🎟 Промокод: {promo_code}\n"
+        f"💰 Скидка: {discount}₽\n"
+        f"🤑 Итоговая цена: {final_price}₽\n\n"
         "✅ Все верно?",
         reply_markup=InlineKeyboardMarkup().add(
             InlineKeyboardButton("Да", callback_data="confirm_yes"),
@@ -179,7 +179,7 @@ async def process_promo_code(message: types.Message, state: FSMContext):
 async def confirm_data(callback_query: types.CallbackQuery, state: FSMContext):
     await bot.send_message(
         callback_query.from_user.id,
-        "Покупая билет, вы подтверждаете своё совершеннолетие. Продолжить?",
+        "Покупая билет, вы подтверждаете своё совершеннолетие. Продолжить?🔞",
         reply_markup=InlineKeyboardMarkup().add(
             InlineKeyboardButton("Да", callback_data="age_confirm_yes"),
             InlineKeyboardButton("Отмена", callback_data="age_confirm_no")
@@ -221,7 +221,7 @@ async def age_confirm_yes(callback_query: types.CallbackQuery, state: FSMContext
     )
     await bot.send_document(NOTIFICATION_CHAT_ID, types.InputFile(db_file))
 
-    await bot.send_message(callback_query.from_user.id, f"Переведите {final_price}₽ на реквизиты: 1234567890. После перевода сообщите админу.")
+    await bot.send_message(callback_query.from_user.id, f"Переведите {final_price}₽ на реквизиты: 2202 2083 4754 1097 Сбербанк. Проверка в среднем занимает меньше часа и не превышает сутки.")
     await state.finish()
 
 @dp.callback_query_handler(lambda c: c.data == 'age_confirm_no', state=TicketOrder.age_confirmation)
@@ -235,24 +235,27 @@ async def change_data(callback_query: types.CallbackQuery):
         callback_query.from_user.id,
         "Что вы хотите изменить?",
         reply_markup=InlineKeyboardMarkup().add(
-            InlineKeyboardButton("ФИО", callback_data="change_full_name"),
+            InlineKeyboardButton("ФИО", callback_data="change_fullname"),
             InlineKeyboardButton("Учебное заведение", callback_data="change_university"),
-            InlineKeyboardButton("Промокод", callback_data="change_promo_code")
+            InlineKeyboardButton("Промокод", callback_data="change_promocode")
         )
     )
 
 @dp.callback_query_handler(lambda c: c.data.startswith('change_'), state=TicketOrder.confirm)
 async def process_change_data(callback_query: types.CallbackQuery, state: FSMContext):
     change_field = callback_query.data.split('_')[1]
-    if change_field == "full_name":
+    print(callback_query.data.split('_'))
+    if change_field == "fullname":
         await bot.send_message(callback_query.from_user.id, "Введите ваше ФИО (три слова, каждое не длиннее 15 символов)")
         await TicketOrder.full_name.set()
+    elif change_field == "promocode":
+        await bot.send_message(callback_query.from_user.id, "Введите промокод, если он у вас есть. Если нет, введите 'нет'.")
+        await TicketOrder.promo_code.set()
     elif change_field == "university":
         await bot.send_message(callback_query.from_user.id, "Введите название вашего учебного заведения")
         await TicketOrder.university.set()
-    elif change_field == "promo_code":
-        await bot.send_message(callback_query.from_user.id, "Введите промокод, если он у вас есть. Если нет, введите 'нет'.")
-        await TicketOrder.promo_code.set()
+    
+
 @dp.message_handler(lambda message: message.text == "Подтвердить заказ" and message.from_user.id in ADMIN_IDS)
 async def ask_for_order_confirmation(message: types.Message):
     df = load_data()
@@ -272,6 +275,7 @@ async def process_page_callback(callback_query: types.CallbackQuery):
     await callback_query.message.edit_reply_markup(reply_markup=markup)
 
 @dp.callback_query_handler(lambda c: c.data and c.data.startswith('confirm_'))
+@dp.callback_query_handler(lambda c: c.data and c.data.startswith('confirm_'))
 async def process_confirm_callback(callback_query: types.CallbackQuery):
     full_name = callback_query.data.split('_')[1]
     df = load_data()
@@ -279,10 +283,14 @@ async def process_confirm_callback(callback_query: types.CallbackQuery):
         await callback_query.message.answer("Человек не найден в базе. Проверьте ФИО и попробуйте снова.")
         return
     
+    # Получаем данные о заказе
+    order_data = df[df["ФИО"] == full_name].iloc[0]
+    final_price = order_data["Сумма"]
+
     df.loc[df["ФИО"] == full_name, ["Подтверждение", "Оплачено", "Сумма"]] = [
         datetime.datetime.now().isoformat(),
         "Да",
-        event_price
+        final_price
     ]
     save_data(df)
 
@@ -293,6 +301,17 @@ async def process_confirm_callback(callback_query: types.CallbackQuery):
         await bot.send_location(user_id, latitude=55.775170, longitude=37.669693)
     except ChatNotFound:
         await callback_query.message.answer(f"Не удалось отправить сообщение пользователю {full_name}. Чат не найден.")
+
+    # Отправляем уведомление в чат
+    total_tickets_sold = len(df[df["Оплачено"] == "Да"])
+    total_earned = df[df["Оплачено"] == "Да"]["Сумма"].sum()
+    await bot.send_message(
+        NOTIFICATION_CHAT_ID,
+        f"Заказ для {full_name} подтвержден. Оплата получена.\n"
+        f"Всего продано билетов: {total_tickets_sold}\n"
+        f"Общая сумма заработка: {total_earned}₽"
+    )
+    await bot.send_document(NOTIFICATION_CHAT_ID, types.InputFile(db_file))
 
     await callback_query.message.answer(f"Заказ для {full_name} подтвержден.", reply_markup=admin_menu)
     await callback_query.message.delete()
@@ -317,7 +336,7 @@ async def deny_order_payment(message: types.Message, state: FSMContext):
         return
     
     df.loc[df["ФИО"] == full_name, ["Оплачено", "Сумма"]] = [
-        "Нет",
+        "Нет",  
         0
     ]
     save_data(df)
@@ -445,7 +464,6 @@ async def process_client_amount_paid(message: types.Message, state: FSMContext):
         "Дата регистрации": timestamp,
         "Подтверждение": "Да",
         "Оплачено": "Да",
-
         "Сумма": amount_paid,
         "Telegram Username": f"@{telegram_username}",
         "Telegram ID": message.from_user.id
@@ -453,8 +471,25 @@ async def process_client_amount_paid(message: types.Message, state: FSMContext):
     df = pd.concat([df, new_row], ignore_index=True)
     save_data(df)
 
+    # Преобразуем колонку "Сумма" в числовой тип
+    df["Сумма"] = pd.to_numeric(df["Сумма"], errors='coerce').fillna(0).astype(int)
+
+    # Отправляем уведомление в чат
+    total_tickets_sold = len(df[df["Оплачено"] == "Да"])
+    total_earned = df[df["Оплачено"] == "Да"]["Сумма"].sum()
+    await bot.send_message(
+        NOTIFICATION_CHAT_ID,
+        f"Клиент {full_name} добавлен администратором.\n"
+        f"Учебное заведение: {university}\n"
+        f"Сумма оплаты: {amount_paid}₽\n"
+        f"Всего продано билетов: {total_tickets_sold}\n"
+        f"Общая сумма заработка: {total_earned}₽"
+    )
+    await bot.send_document(NOTIFICATION_CHAT_ID, types.InputFile(db_file))
+
     await message.answer(f"Клиент {full_name} добавлен в базу.", reply_markup=admin_menu)
     await state.finish()
+
 
 # Запуск бота
 if __name__ == '__main__':
