@@ -275,7 +275,6 @@ async def process_page_callback(callback_query: types.CallbackQuery):
     await callback_query.message.edit_reply_markup(reply_markup=markup)
 
 @dp.callback_query_handler(lambda c: c.data and c.data.startswith('confirm_'))
-@dp.callback_query_handler(lambda c: c.data and c.data.startswith('confirm_'))
 async def process_confirm_callback(callback_query: types.CallbackQuery):
     full_name = callback_query.data.split('_')[1]
     df = load_data()
@@ -301,6 +300,9 @@ async def process_confirm_callback(callback_query: types.CallbackQuery):
         await bot.send_location(user_id, latitude=55.775170, longitude=37.669693)
     except ChatNotFound:
         await callback_query.message.answer(f"Не удалось отправить сообщение пользователю {full_name}. Чат не найден.")
+
+    # Преобразуем колонку "Сумма" в числовой тип
+    df["Сумма"] = pd.to_numeric(df["Сумма"], errors='coerce').fillna(0).astype(int)
 
     # Отправляем уведомление в чат
     total_tickets_sold = len(df[df["Оплачено"] == "Да"])
@@ -451,6 +453,12 @@ async def process_client_amount_paid(message: types.Message, state: FSMContext):
         return
 
     amount_paid = message.text.strip()
+    try:
+        amount_paid = int(amount_paid)
+    except ValueError:
+        await message.answer("Некорректная сумма. Введите число.", reply_markup=cancel_button)
+        return
+
     data = await state.get_data()
     full_name = data['full_name']
     university = data['university']
@@ -489,6 +497,7 @@ async def process_client_amount_paid(message: types.Message, state: FSMContext):
 
     await message.answer(f"Клиент {full_name} добавлен в базу.", reply_markup=admin_menu)
     await state.finish()
+
 
 
 # Запуск бота
